@@ -1,21 +1,28 @@
-var request = require('request'),
-    fs = require('fs'),
+var fs = require('fs'),
     cheerio = require('cheerio'),
     _ = require('underscore'),
+    request = require('request'),
     exec = require('child_process').exec;
 
-// keep cookie data
-request = request.defaults({jar: true});
-
-function crawl(dyzh, callback) {
-
+exports.crawl = function(dyzh, callback) {
+    var cookieJar = request.jar();
+    // keep cookie data
     var root = 'http://daoyou-chaxun.cnta.gov.cn/single_info';
     var vcBMP = dyzh + '.vc.bmp';
     var vcJPG = dyzh + ".vc.jpg";
+    var htmlFile = dyzh + ".html";
+    var htmlUTF8File = dyzh + ".utf8.html";
+
+    function clear() {
+        fs.unlink(htmlFile);
+        fs.unlink(htmlUTF8File);
+        fs.unlink(vcBMP);
+        fs.unlink(vcJPG);
+    }
 
     // download vcode image
     var vcimage = request({
-        url: root + '/validatecode.asp'}).pipe(fs.createWriteStream(vcBMP));
+        url: root + '/validatecode.asp', jar: cookieJar}).pipe(fs.createWriteStream(vcBMP));
 
     vcimage.on('close', function() {
         // convert vcode image format
@@ -24,9 +31,6 @@ function crawl(dyzh, callback) {
             // recognize vcode
             exec("tesseract " + vcJPG + " stdout -psm 7 digits 2>/dev/null", function(err, stdout, stderr) {
                 var vc = stdout.trim();
-
-                var htmlFile = dyzh + ".html";
-                var htmlUTF8File = dyzh + ".utf8.html";
 
                 var result = request({
                     url: root + '/selectlogin_1.asp',
@@ -38,8 +42,9 @@ function crawl(dyzh, callback) {
                         x: 39,
                         y: 11
                     },
-                    method: 'POST',
+                    jar: cookieJar,
                     followAllRedirects: true,
+                    method: 'POST',
                     headers: {
                         'Referer': root + '/selectlogin_1.asp',
                         'Host': 'daoyou-chaxun.cnta.gov.cn'
@@ -53,7 +58,7 @@ function crawl(dyzh, callback) {
                             $ = cheerio.load(data.toString());
                             var tds = $("td");
 
-                            if (tds.length < 40) {callback('error'); return; } 
+                            if (tds.length < 40) {callback('error'); clear(); return; } 
 
                             var headPic = root + $("table.table_border_01 td table td img").attr("src").substring(1);
                             var fields = {
@@ -85,10 +90,7 @@ function crawl(dyzh, callback) {
 
                             callback(null, result);
 
-                            fs.unlink(htmlFile);
-                            fs.unlink(htmlUTF8File);
-                            fs.unlink(vcBMP);
-                            fs.unlink(vcJPG);
+                            clear();
                         });
                     });
                 });
@@ -97,9 +99,3 @@ function crawl(dyzh, callback) {
     }); // crawl vcode
 }
 
-var dyzh = 'D-1100-000001';
-crawl(dyzh, function(err, result) {
-    _.each(result, function(value, key) {
-        console.log(key + ":" + value)
-    });
-});
