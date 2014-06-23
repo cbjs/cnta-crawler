@@ -66,10 +66,10 @@ exports.crawl = function(dyzh, callback) {
     var htmlUTF8File = dyzh + ".utf8.html";
 
     function clear() {
-        if (fs.exists(htmlFile), function(e) {
+        fs.exists(htmlFile, function(e) {
             if (e) fs.unlink(htmlFile);
         });
-        if (fs.exists(htmlUTF8File), function(e) {
+        fs.exists(htmlUTF8File, function(e) {
             if (e) fs.unlink(htmlUTF8File);
         });
     }
