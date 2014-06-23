@@ -75,7 +75,7 @@ exports.crawl = function(dyzh, callback) {
     }
 
     var retries = 0;
-    var MAX_RETRIES = 5;
+    var MAX_RETRIES = 10;
     crawl();
 
     function crawl() {
@@ -99,6 +99,7 @@ exports.crawl = function(dyzh, callback) {
                     'Host': 'daoyou-chaxun.cnta.gov.cn'
                 }
             }).on('error', function() {
+                clear();
                 if (++retries < MAX_RETRIES) {
                     //console.log("retry for %s %d times", dyzh, retries);
                     crawl();
