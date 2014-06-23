@@ -16,6 +16,10 @@ function getvc(dyzh, callback) {
     var vcimage = request({
         url: root + '/validatecode.asp', jar: cookieJar}).pipe(fs.createWriteStream(vcBMP));
 
+    vcimage.on('error', function() {
+        callback('requestPipeError');
+    });
+
     vcimage.on('close', function() {
         // convert vcode image format
         exec("convert " + vcBMP + " " + vcJPG + " &>/dev/null", function(err, stdout, stderr) {
@@ -37,73 +41,126 @@ exports.crawl = function(dyzh, callback) {
     var htmlUTF8File = dyzh + ".utf8.html";
 
     function clear() {
-        fs.unlink(htmlFile);
-        fs.unlink(htmlUTF8File);
+        // fs.unlink(htmlFile);
+        // fs.unlink(htmlUTF8File);
     }
 
-    getvc(dyzh, function(err, cookieJar, vc) {
-        var result = request({
-            url: root + '/selectlogin_1.asp',
-            form: {
-                vcode: vc,
-                text_dykh: '',
-                text_dysfzh: '',
-                text_dyzh: dyzh,
-                x: 39,
-                y: 11
-            },
-            jar: cookieJar,
-            followAllRedirects: true,
-            method: 'POST',
-            headers: {
-                'Referer': root + '/selectlogin_1.asp',
-                'Host': 'daoyou-chaxun.cnta.gov.cn'
-            }
-        }).pipe(fs.createWriteStream(htmlFile));
+    var retries = 0;
+    var MAX_RETRIES = 5;
+    crawl();
 
-        result.on('close', function() {
-            // file format convert
-            exec("iconv -f gbk -t utf-8 -o " + htmlUTF8File + " " + htmlFile, function(err, stdout, stderr) {
-                fs.readFile(htmlUTF8File, function(err, data) {
-                    $ = cheerio.load(data.toString());
-                    var tds = $("td");
+    function crawl() {
+        getvc(dyzh, function(err, cookieJar, vc) {
+            var result = request({
+                url: root + '/selectlogin_1.asp',
+                form: {
+                    vcode: vc,
+                    text_dykh: '',
+                    text_dysfzh: '',
+                    text_dyzh: dyzh,
+                    x: 39,
+                    y: 11
+                },
+                jar: cookieJar,
+                followAllRedirects: true,
+                method: 'POST',
+                headers: {
+                    'Referer': root + '/selectlogin_1.asp',
+                    'Host': 'daoyou-chaxun.cnta.gov.cn'
+                }
+            }).pipe(fs.createWriteStream(htmlFile));
 
-                    if (tds.length < 40) {callback('error'); clear(); return; } 
+            result.on('error', function() {
+                clear();
+                if (++retries < MAX_RETRIES) {
+                    console.log("retry for %s %d times", dyzh, retries);
+                    crawl();
+                } else {
+                    console.log('get detail error for %s', dyzh);
+                    callback('NetworkError');
+                }
+            });
 
-                    var headPic = root + $("table.table_border_01 td table td img").attr("src").substring(1);
-                    var fields = {
-                        '姓名': 11,
-                        '导游证号': 17,
-                        '性别': 19,
-                        '资格证号': 21,
-                        '等级': 23,
-                        '导游卡号': 25,
-                        '学历': 27,
-                        '身份证号': 29,
-                        '语种': 31,
-                        '区域名称': 33,
-                        '民族': 35,
-                        '发证日期': 37,
-                        '分值': 39,
-                        '获惩日期': 41,
-                        '获惩类型': 43,
-                        '旅行社': 45,
-                        '电话': 47,
-                        '其它信息': 48
-                    }
+            result.on('close', function() {
+                // file format convert
+                exec("iconv -f gbk -t utf-8 -o " + htmlUTF8File + " " + htmlFile, function(err, stdout, stderr) {
 
-                    var result = {'照片': headPic};
+                    fs.readFile(htmlUTF8File, function(err, data) {
 
-                    _.each(fields, function(id, field) {
-                        result[field] = tds.eq(id).text().trim();
+                        if (!data) {
+                            console.log('wrong html for %s', dyzh);
+                            callback('WrongHtml');
+                            return;
+                        }
+                        
+                        // err (wrong vc) retry mech
+                        if (data.toString().indexOf('验证码输入错误') != -1) {
+                            clear();
+                            if (++retries < MAX_RETRIES) {
+                                console.log("retry for %s %d times", dyzh, retries);
+                                crawl();
+                            } else {
+                                console.log('wrong vc for %s', dyzh);
+                                callback('WrongVC');
+                            }
+                            return;
+                        }
+
+                        // err (wrong dyzh) retry mech
+                        if (data.toString().indexOf('无此导游信息') != -1) {
+                            clear();
+                            console.info('dyzh not exist for %s', dyzh);
+                            callback('DYZHNotExist');
+                            return;
+                        }
+
+                        // try parse html
+                        $ = cheerio.load(data.toString());
+                        var tds = $("td");
+
+                        if (tds.length < 40) {
+                            console.info('wrong format for %s', dyzh);
+                            callback('WrongFormat'); 
+                            clear(); 
+                            return; 
+                        } 
+
+                        var headPic = root + $("table.table_border_01 td table td img").attr("src").substring(1);
+                        var fields = {
+                            '姓名': 11,
+                            '导游证号': 17,
+                            '性别': 19,
+                            '资格证号': 21,
+                            '等级': 23,
+                            '导游卡号': 25,
+                            '学历': 27,
+                            '身份证号': 29,
+                            '语种': 31,
+                            '区域名称': 33,
+                            '民族': 35,
+                            '发证日期': 37,
+                            '分值': 39,
+                            '获惩日期': 41,
+                            '获惩类型': 43,
+                            '旅行社': 45,
+                            '电话': 47,
+                            '其它信息': 48
+                        }
+
+                        var result = {'照片': headPic};
+
+                        _.each(fields, function(id, field) {
+                            result[field] = tds.eq(id).text().trim();
+                        });
+
+                        callback(null, result);
+
+                        clear();
                     });
-
-                    callback(null, result);
-
-                    clear();
                 });
             });
         });
-    });
-}
+    } // end of crawl
+
+} // end of exports.crawl
 
