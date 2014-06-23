@@ -52,21 +52,11 @@ exports.download = function(furl, outfile, callback) {
 };
 
 exports.clear = function(dyzh) {
-    var vcBMP = dyzh + '.vc.bmp';
-    var vcJPG = dyzh + ".vc.jpg";
-    var htmlFile = dyzh + ".html";
-    var htmlUTF8File = dyzh + ".utf8.html";
-    if (fs.exists(vcBMP, function(e) {
-        if (e) fs.unlink(vcBMP, function(){});
-    }));
-    if (fs.exists(vcJPG, function(e) {
-        if (e) fs.unlink(vcJPG, function(){});
-    }));
-    fs.exists(htmlFile, function(e) {
-        if (e) fs.unlink(htmlFile, function(){});
-    });
-    fs.exists(htmlUTF8File, function(e) {
-        if (e) fs.unlink(htmlUTF8File,function(){});
+    var suffixes = ['.vc.bmp', '.vc.jpg', '.html', '.utf8.html'];
+
+    _.each(suffixes, function(suffix) {
+      var filename = dyzh + suffix;
+      if (fs.existsSync(filename)) fs.unlinkSync(filename);
     });
 }
 
