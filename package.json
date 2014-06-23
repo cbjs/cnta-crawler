@@ -8,8 +8,8 @@
     "url": "https://github.com/cbjs/cnta-crawler"
   },
   "dependencies": {
-    "request": "^2.34.0",
-    "async": "^0.7.0",
+    "request": "^2.36.0",
+    "async": "^0.9.0",
     "cheerio": "^0.15.0",
     "underscore": "^1.6.0",
     "mkdirp": "^0.4.0",
