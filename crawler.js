@@ -14,10 +14,10 @@ function getvc(dyzh, callback) {
 
     function clear() {
         if (fs.exists(vcBMP, function(e) {
-            if (e) fs.unlink(vcBMP);
+            if (e) fs.unlinkSync(vcBMP);
         }));
         if (fs.exists(vcJPG, function(e) {
-            if (e) fs.unlink(vcJPG);
+            if (e) fs.unlinkSync(vcJPG);
         }));
     }
 
@@ -67,10 +67,10 @@ exports.crawl = function(dyzh, callback) {
 
     function clear() {
         fs.exists(htmlFile, function(e) {
-            if (e) fs.unlink(htmlFile);
+            if (e) fs.unlinkSync(htmlFile);
         });
         fs.exists(htmlUTF8File, function(e) {
-            if (e) fs.unlink(htmlUTF8File);
+            if (e) fs.unlinkSync(htmlUTF8File);
         });
     }
 
