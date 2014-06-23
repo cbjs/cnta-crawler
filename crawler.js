@@ -13,10 +13,11 @@ function getvc(dyzh, callback) {
     var vcJPG = dyzh + ".vc.jpg";
 
     // download vcode image
-    var vcimage = request({url: root + '/validatecode.asp', jar: cookieJar})
+    var vcimage = request({url: root + '/validatecode.asp', jar: cookieJar, timeout: 10000})
         .on('error', function() {
             callback('requestPipeError');
         });
+    vcimage.setMaxListeners(0);
     vcimage.pipe(fs.createWriteStream(vcBMP))
         .on('close', function() {
             // convert vcode image format
@@ -59,6 +60,7 @@ exports.crawl = function(dyzh, callback) {
                     x: 39,
                     y: 11
                 },
+                timeout: 10000,
                 jar: cookieJar,
                 followAllRedirects: true,
                 method: 'POST',
@@ -76,6 +78,7 @@ exports.crawl = function(dyzh, callback) {
                     callback('NetworkError');
                 }
             });
+            result.setMaxListeners(0);
 
             result.pipe(fs.createWriteStream(htmlFile)).on('close', function() {
                 // file format convert

@@ -9,6 +9,7 @@ var resultDir = './result';
 
 // read district code
 var codes = fs.readFileSync('code').toString().trim().split("\n");
+
 async.eachLimit(codes, 5, function(code, next) {
     var dir = resultDir + "/" + code + "/";
     mkdirp.sync(dir);
@@ -28,10 +29,10 @@ async.eachLimit(codes, 5, function(code, next) {
                 
                 if (result) {
                     fail = 0;
-                    var photo = request(result['照片']).on('error', function() {
+                    var photo = request({url:result['照片'], timeout:10000}).on('error', function() {
                             console.log('get photo fail for %s', result['照片']);
                     });
-                    photo.pipe(fs.createWriteStream(dir + dyzh + ".head.jpg"))
+                    photo.pipe(fs.createWriteStream(dir + dyzh + ".head.jpg"));
                     fs.writeFile(dir + dyzh + ".info", _.values(result).join("\t"));
                 }
 
