@@ -25,6 +25,7 @@ async.eachLimit(codes, 5, function(code, next) {
 
             crawler.crawl(dyzh, function(err, result) {
                 crawler.clear(dyzh);
+
                 if (err) {
                     fail++;
                     console.log("%s %s", dyzh, err);
@@ -32,11 +33,14 @@ async.eachLimit(codes, 5, function(code, next) {
                 
                 if (result) {
                     fail = 0;
-                    crawler.download(result['照片'], dir + dyzh + ".head.jpg");
-                    fs.appendFile(dir + "all.info", _.values(result).join("\t") + "\n");
+                    crawler.download(result['照片'], dir + dyzh + ".head.jpg", function() {
+                      fs.appendFile(dir + "all.info", _.values(result).join("\t") + "\n", function() {
+                        callback();
+                      });
+                    });
+                } else {
+                  callback();
                 }
-
-                callback();
             });
         },
         function(err) {

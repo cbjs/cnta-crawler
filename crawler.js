@@ -15,8 +15,7 @@ function getvc(dyzh, callback) {
     // download vcode image
     var vcimage = request({url: root + '/validatecode.asp', jar: cookieJar, timeout: 10000})
         .on('error', function() {
-            callback('requestPipeError');
-            vcimage.unpipe();
+            callback('RequestPipeError');
         });
     vcimage.setMaxListeners(0);
     vcimage.pipe(fs.createWriteStream(vcBMP))
@@ -45,7 +44,6 @@ exports.download = function(furl, outfile, callback) {
             } else {
                 if (callback) callback('DownloadFailed');
             }
-            freq.unpipe();
         });
         freq.setMaxListeners(0);
         freq.pipe(fs.createWriteStream(outfile));
@@ -77,7 +75,7 @@ exports.crawl = function(dyzh, callback) {
     var htmlUTF8File = dyzh + ".utf8.html";
 
     var retries = 0;
-    var MAX_RETRIES = 10;
+    var MAX_RETRIES = 5;
     crawl();
 
     function crawl() {
@@ -108,7 +106,6 @@ exports.crawl = function(dyzh, callback) {
                     //console.log('get detail error for %s', dyzh);
                     callback('NetworkError');
                 }
-                result.unpipe();
             });
 
             result.setMaxListeners(0);
