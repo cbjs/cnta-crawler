@@ -24,6 +24,7 @@ async.eachLimit(codes, 5, function(code, next) {
             num++;
 
             crawler.crawl(dyzh, function(err, result) {
+                crawler.clear(dyzh);
                 if (err) {
                     fail++;
                     console.log("%s %s", dyzh, err);
