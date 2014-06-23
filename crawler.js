@@ -14,10 +14,10 @@ function getvc(dyzh, callback) {
 
     function clear() {
         if (fs.exists(vcBMP, function(e) {
-            if (e) fs.unlinkSync(vcBMP);
+            if (e) fs.unlink(vcBMP, function(){});
         }));
         if (fs.exists(vcJPG, function(e) {
-            if (e) fs.unlinkSync(vcJPG);
+            if (e) fs.unlink(vcJPG, function(){});
         }));
     }
 
@@ -67,10 +67,10 @@ exports.crawl = function(dyzh, callback) {
 
     function clear() {
         fs.exists(htmlFile, function(e) {
-            if (e) fs.unlinkSync(htmlFile);
+            if (e) fs.unlink(htmlFile, function(){});
         });
         fs.exists(htmlUTF8File, function(e) {
-            if (e) fs.unlinkSync(htmlUTF8File);
+            if (e) fs.unlink(htmlUTF8File,function(){});
         });
     }
 
@@ -118,8 +118,13 @@ exports.crawl = function(dyzh, callback) {
 
                         if (!data) {
                             //console.log('wrong html for %s', dyzh);
-                            callback('WrongHtml');
-                            return;
+                            clear(); 
+                            if (++retries < MAX_RETRIES) {
+                                crawl();
+                            } else {
+                                callback('WrongHtml');
+                            }
+                            return; 
                         }
                         
                         // err (wrong vc) retry mech
@@ -149,8 +154,12 @@ exports.crawl = function(dyzh, callback) {
 
                         if (tds.length < 40) {
                             //console.info('wrong format for %s', dyzh);
-                            callback('WrongFormat'); 
                             clear(); 
+                            if (++retries < MAX_RETRIES) {
+                                crawl();
+                            } else {
+                                callback('WrongFormat'); 
+                            }
                             return; 
                         } 
 
