@@ -32,6 +32,7 @@ async.eachLimit(codes, 5, function(code, next) {
                     var photo = request({url:result['照片'], timeout:10000}).on('error', function() {
                             console.log('get photo fail for %s', result['照片']);
                     });
+                    photo.setMaxListeners(0);
                     photo.pipe(fs.createWriteStream(dir + dyzh + ".head.jpg"));
                     fs.writeFile(dir + dyzh + ".info", _.values(result).join("\t"));
                 }
