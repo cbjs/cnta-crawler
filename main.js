@@ -1,4 +1,4 @@
-var fs = require('fs'),
+var fs = require('graceful-fs'),
     async = require('async'),
     mkdirp = require('mkdirp'),
     _ = require('underscore'),

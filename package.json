@@ -12,6 +12,7 @@
     "async": "^0.7.0",
     "cheerio": "^0.15.0",
     "underscore": "^1.6.0",
-    "mkdirp": "^0.4.0"
+    "mkdirp": "^0.4.0",
+    "graceful-fs": "*"
   }
 }

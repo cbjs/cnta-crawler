@@ -1,4 +1,4 @@
-var fs = require('fs'),
+var fs = require('graceful-fs'),
     cheerio = require('cheerio'),
     _ = require('underscore'),
     request = require('request'),
