@@ -13,26 +13,24 @@ function getvc(dyzh, callback) {
     var vcJPG = dyzh + ".vc.jpg";
 
     // download vcode image
-    var vcimage = request({
-        url: root + '/validatecode.asp', jar: cookieJar}).pipe(fs.createWriteStream(vcBMP));
+    var vcimage = request({url: root + '/validatecode.asp', jar: cookieJar})
+        .on('error', function() {
+            callback('requestPipeError');
+        });
+    vcimage.pipe(fs.createWriteStream(vcBMP))
+        .on('close', function() {
+            // convert vcode image format
+            exec("convert " + vcBMP + " " + vcJPG + " &>/dev/null", function(err, stdout, stderr) {
 
-    vcimage.on('error', function() {
-        callback('requestPipeError');
-    });
-
-    vcimage.on('close', function() {
-        // convert vcode image format
-        exec("convert " + vcBMP + " " + vcJPG + " &>/dev/null", function(err, stdout, stderr) {
-
-            // recognize vcode
-            exec("tesseract " + vcJPG + " stdout -psm 7 digits 2>/dev/null", function(err, stdout, stderr) {
-                var vc = stdout.trim();
-                callback(err, cookieJar, vc);
-                fs.unlink(vcBMP);
-                fs.unlink(vcJPG);
+                // recognize vcode
+                exec("tesseract " + vcJPG + " stdout -psm 7 digits 2>/dev/null", function(err, stdout, stderr) {
+                    var vc = stdout.trim();
+                    callback(err, cookieJar, vc);
+                    fs.unlink(vcBMP);
+                    fs.unlink(vcJPG);
+                });
             });
         });
-    });
 
 }
 
@@ -41,8 +39,8 @@ exports.crawl = function(dyzh, callback) {
     var htmlUTF8File = dyzh + ".utf8.html";
 
     function clear() {
-        // fs.unlink(htmlFile);
-        // fs.unlink(htmlUTF8File);
+        fs.unlink(htmlFile);
+        fs.unlink(htmlUTF8File);
     }
 
     var retries = 0;
@@ -68,9 +66,7 @@ exports.crawl = function(dyzh, callback) {
                     'Referer': root + '/selectlogin_1.asp',
                     'Host': 'daoyou-chaxun.cnta.gov.cn'
                 }
-            }).pipe(fs.createWriteStream(htmlFile));
-
-            result.on('error', function() {
+            }).on('error', function() {
                 clear();
                 if (++retries < MAX_RETRIES) {
                     console.log("retry for %s %d times", dyzh, retries);
@@ -81,7 +77,7 @@ exports.crawl = function(dyzh, callback) {
                 }
             });
 
-            result.on('close', function() {
+            result.pipe(fs.createWriteStream(htmlFile)).on('close', function() {
                 // file format convert
                 exec("iconv -f gbk -t utf-8 -o " + htmlUTF8File + " " + htmlFile, function(err, stdout, stderr) {
 
