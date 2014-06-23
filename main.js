@@ -2,7 +2,6 @@ var fs = require('graceful-fs'),
     async = require('async'),
     mkdirp = require('mkdirp'),
     _ = require('underscore'),
-    request = require('request'),
     crawler = require('./crawler');
 // mk result dir 
 var resultDir = './result';
@@ -33,7 +32,7 @@ async.eachLimit(codes, 5, function(code, next) {
                 if (result) {
                     fail = 0;
                     crawler.download(result['照片'], dir + dyzh + ".head.jpg");
-                    fs.writeFile(dir + dyzh + ".info", _.values(result).join("\t"));
+                    fs.appendFile(dir + "all.info", _.values(result).join("\t") + "\n");
                 }
 
                 callback();

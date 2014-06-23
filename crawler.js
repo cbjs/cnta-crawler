@@ -40,7 +40,6 @@ function getvc(dyzh, callback) {
                 });
             });
         });
-
 }
 
 exports.download = function(furl, outfile, callback) {
@@ -67,8 +66,12 @@ exports.crawl = function(dyzh, callback) {
     var htmlUTF8File = dyzh + ".utf8.html";
 
     function clear() {
-        fs.unlink(htmlFile);
-        fs.unlink(htmlUTF8File);
+        if (fs.exists(htmlFile), function(e) {
+            if (e) fs.unlink(htmlFile);
+        });
+        if (fs.exists(htmlUTF8File), function(e) {
+            if (e) fs.unlink(htmlUTF8File);
+        });
     }
 
     var retries = 0;
