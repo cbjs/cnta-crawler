@@ -25,15 +25,14 @@ async.eachLimit(codes, 5, function(code, next) {
             num++;
 
             crawler.crawl(dyzh, function(err, result) {
-                if (err) fail++;
+                if (err) {
+                    fail++;
+                    console.log("%s %s", dyzh, err);
+                }
                 
                 if (result) {
                     fail = 0;
-                    var photo = request({url:result['照片'], timeout:10000}).on('error', function() {
-                            console.log('get photo fail for %s', result['照片']);
-                    });
-                    photo.setMaxListeners(0);
-                    photo.pipe(fs.createWriteStream(dir + dyzh + ".head.jpg"));
+                    crawler.download(result['照片'], dir + dyzh + ".head.jpg");
                     fs.writeFile(dir + dyzh + ".info", _.values(result).join("\t"));
                 }
 

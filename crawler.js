@@ -12,6 +12,15 @@ function getvc(dyzh, callback) {
     var vcBMP = dyzh + '.vc.bmp';
     var vcJPG = dyzh + ".vc.jpg";
 
+    function clear() {
+        if (fs.exists(vcBMP, function(e) {
+            if (e) fs.unlink(vcBMP);
+        }));
+        if (fs.exists(vcJPG, function(e) {
+            if (e) fs.unlink(vcJPG);
+        }));
+    }
+
     // download vcode image
     var vcimage = request({url: root + '/validatecode.asp', jar: cookieJar, timeout: 10000})
         .on('error', function() {
@@ -27,13 +36,31 @@ function getvc(dyzh, callback) {
                 exec("tesseract " + vcJPG + " stdout -psm 7 digits 2>/dev/null", function(err, stdout, stderr) {
                     var vc = stdout.trim();
                     callback(err, cookieJar, vc);
-                    fs.unlink(vcBMP);
-                    fs.unlink(vcJPG);
+                    clear();
                 });
             });
         });
 
 }
+
+exports.download = function(furl, outfile, callback) {
+    var retries = 0;
+    var MAX_RETRIES = 5;
+    download();
+    function download() {
+        var freq = request({url: furl, timeout: 10000}).on('error', function() {
+            if (++retries < MAX_RETRIES) {
+                // console.log('retry download %s to %s %d times', furl, outfile, retries);
+                download();
+            } else {
+                if (callback) callback('DownloadFailed');
+            }
+        });
+        freq.setMaxListeners(0);
+        freq.pipe(fs.createWriteStream(outfile));
+        if (callback) callback();
+    }
+};
 
 exports.crawl = function(dyzh, callback) {
     var htmlFile = dyzh + ".html";
@@ -69,12 +96,11 @@ exports.crawl = function(dyzh, callback) {
                     'Host': 'daoyou-chaxun.cnta.gov.cn'
                 }
             }).on('error', function() {
-                clear();
                 if (++retries < MAX_RETRIES) {
-                    console.log("retry for %s %d times", dyzh, retries);
+                    //console.log("retry for %s %d times", dyzh, retries);
                     crawl();
                 } else {
-                    console.log('get detail error for %s', dyzh);
+                    //console.log('get detail error for %s', dyzh);
                     callback('NetworkError');
                 }
             });
@@ -87,7 +113,7 @@ exports.crawl = function(dyzh, callback) {
                     fs.readFile(htmlUTF8File, function(err, data) {
 
                         if (!data) {
-                            console.log('wrong html for %s', dyzh);
+                            //console.log('wrong html for %s', dyzh);
                             callback('WrongHtml');
                             return;
                         }
@@ -96,10 +122,10 @@ exports.crawl = function(dyzh, callback) {
                         if (data.toString().indexOf('验证码输入错误') != -1) {
                             clear();
                             if (++retries < MAX_RETRIES) {
-                                console.log("retry for %s %d times", dyzh, retries);
+                                //console.log("retry for %s %d times", dyzh, retries);
                                 crawl();
                             } else {
-                                console.log('wrong vc for %s', dyzh);
+                                //console.log('wrong vc for %s', dyzh);
                                 callback('WrongVC');
                             }
                             return;
@@ -108,7 +134,7 @@ exports.crawl = function(dyzh, callback) {
                         // err (wrong dyzh) retry mech
                         if (data.toString().indexOf('无此导游信息') != -1) {
                             clear();
-                            console.info('dyzh not exist for %s', dyzh);
+                            //console.info('dyzh not exist for %s', dyzh);
                             callback('DYZHNotExist');
                             return;
                         }
@@ -118,7 +144,7 @@ exports.crawl = function(dyzh, callback) {
                         var tds = $("td");
 
                         if (tds.length < 40) {
-                            console.info('wrong format for %s', dyzh);
+                            //console.info('wrong format for %s', dyzh);
                             callback('WrongFormat'); 
                             clear(); 
                             return; 
@@ -161,5 +187,4 @@ exports.crawl = function(dyzh, callback) {
         });
     } // end of crawl
 
-} // end of exports.crawl
-
+}; // end of exports.crawl
