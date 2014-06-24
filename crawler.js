@@ -32,6 +32,8 @@ function getvc(dyzh, callback) {
         } else {
             callback(err);
         }
+    }).on('error', function(err) {
+        callback(err);
     }).setMaxListeners(0);
 }
 
@@ -52,6 +54,13 @@ exports.download = function(furl, outfile, callback) {
                 } else {
                     if (callback) callback('DownloadFailed');
                 }
+            }
+        }).on('error', function(err) {
+            if (++retries < MAX_RETRIES) {
+                // console.log('retry download %s to %s %d times', furl, outfile, retries);
+                download();
+            } else {
+                if (callback) callback('DownloadFailed');
             }
         }).setMaxListeners(0);
     }
@@ -195,6 +204,8 @@ exports.crawl = function(dyzh, callback) {
                 } else {
                     error_handler(err, true);
                 }
+            }).on('error', function(err) {
+                error_handler(err, true);
             }).setMaxListeners(0);
         }); // getvc
 
