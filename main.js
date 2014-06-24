@@ -32,6 +32,7 @@ async.eachLimit(codes, 5, function(code, next) {
 
             if (success_set.contains(dyzh)) {
               console.log('skip %s', dyzh);
+              success_set.remove(dyzh);
               callback();
               return;
             }
