@@ -13,7 +13,7 @@ function getvc(dyzh, callback) {
     var vcJPG = dyzh + ".vc.jpg";
 
     // download vcode image
-    request({url: root + '/validatecode.asp', jar: cookieJar, timeout: 10000, encoding: null}, function(err, res, body) {
+    request({url: root + '/validatecode.asp', jar: cookieJar, timeout: 20000, encoding: null}, function(err, res, body) {
         if (!err && res.statusCode == 200) {
             fs.writeFile(vcBMP, body, function(err) {
                 if (!err) {
@@ -33,7 +33,7 @@ function getvc(dyzh, callback) {
             callback(err);
         }
     }).on('error', function(err) {
-        callback(err);
+        console.log('getvc %s fail for %s', dyzh, err);
     }).setMaxListeners(0);
 }
 
@@ -42,7 +42,7 @@ exports.download = function(furl, outfile, callback) {
     var MAX_RETRIES = 5;
     download();
     function download() {
-        request({url: furl, timeout: 10000, encoding: null}, function(err, res, body) {
+        request({url: furl, timeout: 20000, encoding: null}, function(err, res, body) {
             if (!err && res.statusCode == 200) {
                 fs.writeFile(outfile, body, function(err) {
                     if (callback) callback(err);
@@ -55,14 +55,11 @@ exports.download = function(furl, outfile, callback) {
                     if (callback) callback('DownloadFailed');
                 }
             }
-        }).on('error', function(err) {
-            if (++retries < MAX_RETRIES) {
-                // console.log('retry download %s to %s %d times', furl, outfile, retries);
-                download();
-            } else {
-                if (callback) callback('DownloadFailed');
-            }
-        }).setMaxListeners(0);
+        })
+        .on('error', function(err) {
+            console.log('download %s fail for %s', furl, err);
+        })
+        .setMaxListeners(0);
     }
 };
 
@@ -183,7 +180,7 @@ exports.crawl = function(dyzh, callback) {
                     x: 39,
                     y: 11
                 },
-                timeout: 10000,
+                timeout: 20000,
                 jar: cookieJar,
                 encoding: null,
                 followAllRedirects: true,
@@ -205,7 +202,7 @@ exports.crawl = function(dyzh, callback) {
                     error_handler(err, true);
                 }
             }).on('error', function(err) {
-                error_handler(err, true);
+                console.log('crawl %s fail for %s', dyzh, err);
             }).setMaxListeners(0);
         }); // getvc
 
