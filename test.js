@@ -4,5 +4,6 @@ crawler.crawl('D-3303-003600', function(err, result) {
     console.log(err);
   } else {
     console.log(result);
+    crawler.download(result['照片'], 'photo.jpg');
   }
 });

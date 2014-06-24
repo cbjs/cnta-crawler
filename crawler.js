@@ -13,23 +13,26 @@ function getvc(dyzh, callback) {
     var vcJPG = dyzh + ".vc.jpg";
 
     // download vcode image
-    var vcimage = request({url: root + '/validatecode.asp', jar: cookieJar, timeout: 10000})
-        .on('error', function() {
-            callback('RequestPipeError');
-        });
-    vcimage.setMaxListeners(0);
-    vcimage.pipe(fs.createWriteStream(vcBMP))
-        .on('close', function() {
-            // convert vcode image format
-            exec("convert " + vcBMP + " " + vcJPG + " &>/dev/null", function(err, stdout, stderr) {
-
-                // recognize vcode
-                exec("tesseract " + vcJPG + " stdout -psm 7 digits 2>/dev/null", function(err, stdout, stderr) {
-                    var vc = stdout.trim();
-                    callback(err, cookieJar, vc);
-                });
+    request({url: root + '/validatecode.asp', jar: cookieJar, timeout: 10000, encoding: null}, function(err, res, body) {
+        if (!err && res.statusCode == 200) {
+            fs.writeFile(vcBMP, body, function(err) {
+                if (!err) {
+                    // convert vcode image format
+                    exec("convert " + vcBMP + " " + vcJPG + " &>/dev/null", function(err, stdout, stderr) {
+                        // recognize vcode
+                        exec("tesseract " + vcJPG + " stdout -psm 7 digits 2>/dev/null", function(err, stdout, stderr) {
+                            var vc = stdout.trim();
+                            callback(err, cookieJar, vc);
+                        });
+                    });
+                } else {
+                    callback(err);
+                }
             });
-        });
+        } else {
+            callback(err);
+        }
+    }).setMaxListeners(0);
 }
 
 exports.download = function(furl, outfile, callback) {
@@ -37,17 +40,20 @@ exports.download = function(furl, outfile, callback) {
     var MAX_RETRIES = 5;
     download();
     function download() {
-        var freq = request({url: furl, timeout: 10000}).on('error', function() {
-            if (++retries < MAX_RETRIES) {
-                // console.log('retry download %s to %s %d times', furl, outfile, retries);
-                download();
+        request({url: furl, timeout: 10000, encoding: null}, function(err, res, body) {
+            if (!err && res.statusCode == 200) {
+                fs.writeFile(outfile, body, function(err) {
+                    if (callback) callback(err);
+                });
             } else {
-                if (callback) callback('DownloadFailed');
+                if (++retries < MAX_RETRIES) {
+                    // console.log('retry download %s to %s %d times', furl, outfile, retries);
+                    download();
+                } else {
+                    if (callback) callback('DownloadFailed');
+                }
             }
-        });
-        freq.setMaxListeners(0);
-        freq.pipe(fs.createWriteStream(outfile));
-        if (callback) callback();
+        }).setMaxListeners(0);
     }
 };
 
@@ -68,9 +74,97 @@ exports.crawl = function(dyzh, callback) {
     var MAX_RETRIES = 5;
     crawl();
 
+    function error_handler(err, toRetry) {
+        if (toRetry && ++retries < MAX_RETRIES) {
+            console.log("retry for %s %d times, error: %s", dyzh, retries, err);
+            crawl();
+        } else {
+            callback(err ? err : 'RetryError');
+        }
+    }
+
+    function extract() {
+        // file format convert
+        exec("iconv -f gbk -t utf-8 -o " + htmlUTF8File + " " + htmlFile, function(err, stdout, stderr) {
+
+            if (err) {
+                error_handler(err, true);
+                return;
+            }
+
+            fs.readFile(htmlUTF8File, function(err, data) {
+                if (err) {
+                    error_handler(err, true);
+                    return;
+                }
+
+                if (!data) {
+                    error_handler('WrongHtml', true);
+                    return;
+                }
+                
+                // err (wrong vc) retry mech
+                if (data.toString().indexOf('验证码输入错误') != -1) {
+                    error_handler('WrongVC', true);
+                    return;
+                }
+
+                // err (wrong dyzh) retry mech
+                if (data.toString().indexOf('无此导游信息') != -1) {
+                    error_handler('DYZHNotExist');
+                    return;
+                }
+
+                // try parse html
+                $ = cheerio.load(data.toString());
+                var tds = $("td");
+
+                if (tds.length < 40) {
+                    error_handler('WrongFormat', true); 
+                    return; 
+                } 
+
+                var headPic = root + $("table.table_border_01 td table td img").attr("src").substring(1);
+                var fields = {
+                    '姓名': 11,
+                    '导游证号': 17,
+                    '性别': 19,
+                    '资格证号': 21,
+                    '等级': 23,
+                    '导游卡号': 25,
+                    '学历': 27,
+                    '身份证号': 29,
+                    '语种': 31,
+                    '区域名称': 33,
+                    '民族': 35,
+                    '发证日期': 37,
+                    '分值': 39,
+                    '获惩日期': 41,
+                    '获惩类型': 43,
+                    '旅行社': 45,
+                    '电话': 47,
+                    '其它信息': 48
+                }
+
+                var result = {'照片': headPic};
+
+                _.each(fields, function(id, field) {
+                    result[field] = tds.eq(id).text().trim();
+                });
+
+                callback(null, result);
+            });
+        });
+    } // extract
+
     function crawl() {
         getvc(dyzh, function(err, cookieJar, vc) {
-            var result = request({
+            if (err) {
+                error_handler(err, true);
+                return;
+            }
+
+            request({
                 url: root + '/selectlogin_1.asp',
                 form: {
                     vcode: vc,
@@ -82,107 +176,28 @@ exports.crawl = function(dyzh, callback) {
                 },
                 timeout: 10000,
                 jar: cookieJar,
+                encoding: null,
                 followAllRedirects: true,
                 method: 'POST',
                 headers: {
                     'Referer': root + '/selectlogin_1.asp',
                     'Host': 'daoyou-chaxun.cnta.gov.cn'
                 }
-            }).on('error', function() {
-                if (++retries < MAX_RETRIES) {
-                    //console.log("retry for %s %d times", dyzh, retries);
-                    crawl();
-                } else {
-                    //console.log('get detail error for %s', dyzh);
-                    callback('NetworkError');
-                }
-            });
-
-            result.setMaxListeners(0);
-
-            result.pipe(fs.createWriteStream(htmlFile)).on('close', function() {
-                // file format convert
-                exec("iconv -f gbk -t utf-8 -o " + htmlUTF8File + " " + htmlFile, function(err, stdout, stderr) {
-
-                    fs.readFile(htmlUTF8File, function(err, data) {
-
-                        if (!data) {
-                            //console.log('wrong html for %s', dyzh);
-                            if (++retries < MAX_RETRIES) {
-                                crawl();
-                            } else {
-                                callback('WrongHtml');
-                            }
-                            return; 
+            }, function(err, res, body) {
+                if (!err && res.statusCode == 200) {
+                    fs.writeFile(htmlFile, body, function(err) {
+                        if (err) {
+                            error_handler(err, true);
+                        } else {
+                            extract();
                         }
-                        
-                        // err (wrong vc) retry mech
-                        if (data.toString().indexOf('验证码输入错误') != -1) {
-                            if (++retries < MAX_RETRIES) {
-                                //console.log("retry for %s %d times", dyzh, retries);
-                                crawl();
-                            } else {
-                                //console.log('wrong vc for %s', dyzh);
-                                callback('WrongVC');
-                            }
-                            return;
-                        }
-
-                        // err (wrong dyzh) retry mech
-                        if (data.toString().indexOf('无此导游信息') != -1) {
-                            //console.info('dyzh not exist for %s', dyzh);
-                            callback('DYZHNotExist');
-                            return;
-                        }
-
-                        // try parse html
-                        $ = cheerio.load(data.toString());
-                        var tds = $("td");
-
-                        if (tds.length < 40) {
-                            //console.info('wrong format for %s', dyzh);
-                            if (++retries < MAX_RETRIES) {
-                                crawl();
-                            } else {
-                                callback('WrongFormat'); 
-                            }
-                            return; 
-                        } 
-
-                        var headPic = root + $("table.table_border_01 td table td img").attr("src").substring(1);
-                        var fields = {
-                            '姓名': 11,
-                            '导游证号': 17,
-                            '性别': 19,
-                            '资格证号': 21,
-                            '等级': 23,
-                            '导游卡号': 25,
-                            '学历': 27,
-                            '身份证号': 29,
-                            '语种': 31,
-                            '区域名称': 33,
-                            '民族': 35,
-                            '发证日期': 37,
-                            '分值': 39,
-                            '获惩日期': 41,
-                            '获惩类型': 43,
-                            '旅行社': 45,
-                            '电话': 47,
-                            '其它信息': 48
-                        }
-
-                        var result = {'照片': headPic};
-
-                        _.each(fields, function(id, field) {
-                            result[field] = tds.eq(id).text().trim();
-                        });
-
-                        callback(null, result);
-
                     });
-                });
-            });
-        });
+                } else {
+                    error_handler(err, true);
+                }
+            }).setMaxListeners(0);
+        }); // getvc
+
     } // end of crawl
 
 }; // end of exports.crawl
