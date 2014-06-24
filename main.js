@@ -63,3 +63,7 @@ async.eachLimit(codes, 5, function(code, next) {
         }
     );
 });
+
+process.on('uncaughtException', function(err) {
+    console.log('uncaughtException: %s', err);
+});

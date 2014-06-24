@@ -13,7 +13,7 @@ function getvc(dyzh, callback) {
     var vcJPG = dyzh + ".vc.jpg";
 
     // download vcode image
-    request({url: root + '/validatecode.asp', jar: cookieJar, timeout: 20000, encoding: null}, function(err, res, body) {
+    var vcimage = request({url: root + '/validatecode.asp', jar: cookieJar, timeout: 20000, encoding: null}, function(err, res, body) {
         if (!err && res.statusCode == 200) {
             fs.writeFile(vcBMP, body, function(err) {
                 if (!err) {
@@ -32,9 +32,11 @@ function getvc(dyzh, callback) {
         } else {
             callback(err);
         }
-    }).on('error', function(err) {
+    });
+    vcimage.on('error', function(err) {
         console.log('getvc %s fail for %s', dyzh, err);
-    }).setMaxListeners(0);
+    });
+    vcimage.setMaxListeners(0);
 }
 
 exports.download = function(furl, outfile, callback) {
@@ -42,7 +44,7 @@ exports.download = function(furl, outfile, callback) {
     var MAX_RETRIES = 5;
     download();
     function download() {
-        request({url: furl, timeout: 20000, encoding: null}, function(err, res, body) {
+        var dreq = request({url: furl, timeout: 20000, encoding: null}, function(err, res, body) {
             if (!err && res.statusCode == 200) {
                 fs.writeFile(outfile, body, function(err) {
                     if (callback) callback(err);
@@ -55,11 +57,11 @@ exports.download = function(furl, outfile, callback) {
                     if (callback) callback('DownloadFailed');
                 }
             }
-        })
-        .on('error', function(err) {
+        });
+        dreq.on('error', function(err) {
             console.log('download %s fail for %s', furl, err);
-        })
-        .setMaxListeners(0);
+        });
+        dreq.setMaxListeners(0);
     }
 };
 
@@ -170,7 +172,7 @@ exports.crawl = function(dyzh, callback) {
                 return;
             }
 
-            request({
+            var creq = request({
                 url: root + '/selectlogin_1.asp',
                 form: {
                     vcode: vc,
@@ -201,9 +203,11 @@ exports.crawl = function(dyzh, callback) {
                 } else {
                     error_handler(err, true);
                 }
-            }).on('error', function(err) {
+            });
+            creq.on('error', function(err) {
                 console.log('crawl %s fail for %s', dyzh, err);
-            }).setMaxListeners(0);
+            });
+            creq.setMaxListeners(0);
         }); // getvc
 
     } // end of crawl
